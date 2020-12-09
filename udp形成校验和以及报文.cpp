@@ -6,9 +6,10 @@
 #include <cstring>
 #include <sstream> 
 #include <algorithm>
+#include <cstdio>
 using namespace std;
 //整数转string 
-string to_string(unsigned long num){//整数转string
+string to_string(unsigned long num){
 	stringstream ss;
 	string str;
 	ss<<num;
@@ -29,7 +30,7 @@ string int2bin(int num,int bit_num){//整型转二进制
 	}
 	return s;
 }
-string str2bin(string s){//字符串中的字符转为asc码，8位拼接
+string str2bin(string s){
 	string r="";
 	for(int i=0;i<s.size();++i){
 		unsigned char c=s[i];
@@ -37,7 +38,7 @@ string str2bin(string s){//字符串中的字符转为asc码，8位拼接
 	}
 	return r;
 }
-int bin_dec(string b){//16位二进制数转为10进制
+int bin2dec(string b){//16位二进制数转为10进制
 	int n=b.size();
 	int d=0;
 	for(int i=0;i<n;++i){
@@ -53,12 +54,15 @@ struct udp_message{
 	int check_sum;//校验和
 	string message;//报文段
 	udp_message(){}
-	udp_message(int sp,int sn,int l,int cs,string m){
-		server_port=sp;
-		seq_num=sn;
-		length=l;
-		check_sum=cs;
-		message=m;
+	udp_message(int server_port,int seq_num,int length,int check_sum,string message):
+		server_port(server_port),
+		seq_num(seq_num),
+		length(length),
+		check_sum(check_sum),
+		message(message){}
+	void print(){
+		printf("server_port:%d\nseq_num:%d\nlength:%d\ncheck_sum:%d\nmessage:%s\n",
+			server_port,seq_num,length,check_sum,message.c_str());
 	}
 	//真正的报文，二进制串
 	string real_message(){
@@ -86,7 +90,7 @@ struct udp_message{
 		unsigned long sum=0;
 		int n=s.size();
 		for(int i=0;i<n;i+=16){
-			sum+=bin_dec(s.substr(i,16));
+			sum+=bin2dec(s.substr(i,16));
 			sum=(sum>>16)+(sum&0xffff);
 			//后16位加上自己的进位部分，相当于回卷
 			//用二进制举例，因为和最大为111+111=1110=1111-1，所以加上进位后肯定不会再进位了 
@@ -104,10 +108,25 @@ struct udp_message{
 		}
 		return result;
 	} 
-
 };
+//解析udp报文，返回报文段
+string analyse(string s){
+	int server_port=bin2dec(s.substr(0,16));
+	int seq_num=bin2dec(s.substr(16,1));
+	int length=bin2dec(s.substr(17,16));
+	int check_sum=bin2dec(s.substr(33,16));
+	string message_asc=s.substr(49,length);
+	string message="";
+	for(int i=0;i<length;i+=8){
+		message+=bin2dec(message_asc.substr(i,8));
+	}
+	udp_message m=udp_message(server_port,seq_num,length,check_sum,message);
+	m.print();
+	return message;
+}
 int main(){
-	string text="abc";//要发送的信息
+	string text="abc";
 	udp_message mes=udp_message(6666,1,text.size()*8,0,text);
-	mes.real_message();
+	string s=mes.real_message();
+	analyse(s);
 }
