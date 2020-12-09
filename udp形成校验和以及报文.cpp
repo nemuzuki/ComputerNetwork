@@ -127,6 +127,7 @@ string analyse(string s){
 	int sum=0;
 	for(int i=0;i<s.size();i+=16){
 		sum+=bin2dec(s.substr(i,16));
+		sum=(sum>>16)+(sum&0xffff);
 	}
 	cout<<int2bin(sum,16)<<endl;
 	return message;
