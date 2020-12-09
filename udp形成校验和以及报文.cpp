@@ -1,6 +1,6 @@
 /*
 用于rdt3.0
-这里将udp报文定义为[端口号16位/序号1位/报文段转为二进制的长度16位/校验和16位/报文段n位]
+这里将udp报文定义为[端口号16位/序号16位/报文段转为二进制的长度16位/校验和16位/报文段n位]
 */
 #include <iostream>
 #include <cstring>
@@ -67,7 +67,8 @@ struct udp_message{
 	//真正的报文，二进制串
 	string real_message(){
 		string s_p=int2bin(server_port,16);
-		string s_n=to_string(seq_num);
+		//注意：经测试，序号也必须是16位，这样使得16位的校验和不被切开，最后和才能全为1！
+		string s_n=int2bin(seq_num,16);
 		string l=int2bin(length,16);
 		string c_s=int2bin(check_sum,16);
 		string m=str2bin(message);
@@ -81,8 +82,8 @@ struct udp_message{
 		result+=need0;
 
 		c_s=checksum(result);
-		result.replace(33,16,c_s);
-		cout<<result<<endl;
+		result.replace(48,16,c_s);//把校验和填到报文中
+		cout<<s_p<<"/"<<s_n<<"/"<<l<<"/"<<c_s<<"/"<<m<<endl;
 		return result;
 	}
 	//计算校验和，每16位转为10进制，然后求和取反
@@ -112,16 +113,22 @@ struct udp_message{
 //解析udp报文，返回报文段
 string analyse(string s){
 	int server_port=bin2dec(s.substr(0,16));
-	int seq_num=bin2dec(s.substr(16,1));
-	int length=bin2dec(s.substr(17,16));
-	int check_sum=bin2dec(s.substr(33,16));
-	string message_asc=s.substr(49,length);
+	int seq_num=bin2dec(s.substr(16,16));
+	int length=bin2dec(s.substr(32,16));
+	int check_sum=bin2dec(s.substr(48,16));
+	string message_asc=s.substr(64,length);
 	string message="";
 	for(int i=0;i<length;i+=8){
 		message+=bin2dec(message_asc.substr(i,8));
 	}
 	udp_message m=udp_message(server_port,seq_num,length,check_sum,message);
 	m.print();
+
+	int sum=0;
+	for(int i=0;i<s.size();i+=16){
+		sum+=bin2dec(s.substr(i,16));
+	}
+	cout<<int2bin(sum,16)<<endl;
 	return message;
 }
 int main(){
