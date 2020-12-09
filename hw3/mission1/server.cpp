@@ -3,47 +3,50 @@
 #pragma comment(lib,"ws2_32")
 using namespace std;
 #define SERVER_PORT 6666
-
+#define CLIENT_PORT 6665
 SOCKET localSocket; 
-//å‘é€çš„ipå’Œç«¯å£å·ä¿¡æ¯ 
+//·¢ËÍµÄipºÍ¶Ë¿ÚºÅĞÅÏ¢ 
 struct sockaddr_in clientAddr,serverAddr;
 
 
 int send_to(string s){
 	const char *c=s.c_str();
-	//å‘é€æ•°æ®åˆ°åœ°å€serverAddr
+	//·¢ËÍÊı¾İµ½µØÖ·serverAddr
 	return sendto(localSocket,c,200,0,(SOCKADDR*)&clientAddr,sizeof(SOCKADDR));
 }
-//è§£ææŠ¥æ–‡ 
-string analyse(string recvbuf){
-	int n=recvbuf.length();
-	char seq_num=recvbuf[0];//ç¬¬ä¸€ä½æ˜¯åºå·
-	
-	//è·å¾—æ ¡éªŒå’Œ 
-	int i=2;
-	for(;i<n;++i){
-		if(recvbuf[i]=='$'){
-			break;
-		}
+//½âÎöudp±¨ÎÄ£¬·µ»Ø±¨ÎÄ¶Î
+string analyse(string s){
+	int server_port=bin2dec(s.substr(0,16));
+	int seq_num=bin2dec(s.substr(16,16));
+	int length=bin2dec(s.substr(32,16));
+	int check_sum=bin2dec(s.substr(48,16));
+	string message_asc=s.substr(64,length);
+	string message="";
+	for(int i=0;i<length;i+=8){
+		message+=bin2dec(message_asc.substr(i,8));
 	}
-	string checksum_seg=get_substr(recvbuf,i+1,n-1);//æ ¡éªŒå’Œå­—æ®µ 
-	cout<<"æ ¡éªŒå’Œå­—æ®µï¼š"<<checksum_seg<<" ";
-	string checksum_result=to_string(checksum(get_substr(recvbuf,2,i-1)));
-	cout<<"è®¡ç®—å‡ºçš„æ ¡éªŒå’Œï¼š"<<checksum_result<<' ';
-	//å¦‚æœæ­£ç¡®ï¼Œå‘é€[æ­£ç¡®åºåˆ—å·$ACK] 
-	if(checksum_seg==checksum_result){
-		cout<<"æ ¡éªŒå’Œæ­£ç¡®"<<endl; 
-		if(seq_num=='0')send_to("0$ACK"); 
-		else send_to("1$ACK"); 
+	udp_message m=udp_message(server_port,seq_num,length,check_sum,message);
+	m.print();
+
+	int sum=0;
+	for(int i=0;i<s.size();i+=16){
+		sum+=bin2dec(s.substr(i,16));
+		sum=(sum>>16)+(sum&0xffff);
 	}
-	//é”™è¯¯åˆ™å‘é€[é”™è¯¯åºåˆ—å·$ACK]  
+	//Sleep(1000);
+	if(sum==0xffff){//Ğ£ÑéºÍÕıÈ·£¬»Ø¸´ACK
+		cout<<"Ğ£ÑéºÍÕıÈ·"<<endl;
+		udp_message m=udp_message(CLIENT_PORT,seq_num,24,0,"ACK");
+		string message=m.real_message();
+		send_to(message);
+	}
 	else{
-		cout<<"æ ¡éªŒå’Œé”™è¯¯"<<endl; 
-		if(seq_num=='0')send_to("1$ACK"); 
-		else send_to("0$ACK"); 
+		cout<<"Ğ£ÑéºÍ´íÎó"<<sum<<endl;
+		udp_message m=udp_message(CLIENT_PORT,1-seq_num,24,0,"ACK");
+		string message=m.real_message();
+		send_to(message);
 	}
-	//è¿”å›æŠ¥æ–‡æ®µ 
-	return get_substr(recvbuf,2,i-1);
+	return message;
 }
 
 string recv_from(){
@@ -54,62 +57,26 @@ string recv_from(){
 	return analyse(s);
 }
 
-//æ¥æ”¶æ–‡ä»¶ï¼Œå¹¶ä¿å­˜åˆ°path
-void recv_file(string path){
-	//string recv_s=recv_from();
-	char buffer[bufferSize];
-	//strcpy(buffer,recv_s.c_str());
-	int size=sizeof(clientAddr);
-	recvfrom(localSocket,buffer,sizeof(buffer),0,(SOCKADDR*)&clientAddr,&size);
-	cout<<"get!"<<endl;
-	
-	FILE *fout=fopen(path.c_str(),"wb");
-	fwrite(buffer,1,sizeof(buffer),fout);
-	fclose(fout);
-} 
-
-//æ¥æ”¶å›¾ç‰‡ æˆ–è€…éœ€è¦åˆ†å—çš„æ–‡ä»¶ 
-void recv_pic(string path){
-	char buffer[bufferSize]; 
-	
-	FILE *fout=fopen(path.c_str(),"wb");
-	while(1)
-	{
-		int size=sizeof(clientAddr);
-		recvfrom(localSocket,buffer,sizeof(buffer),0,(SOCKADDR*)&clientAddr,&size);
-		//cout<<"get!"<<endl;
-		fwrite(buffer,1,sizeof(buffer),fout);
-		memset(buffer,0,sizeof(buffer));
-	} 
-	cout<<"transport picture finish!"<<endl;
-	fclose(fout);
-}
 int main(){
     WSADATA wsaData;
 	WORD wVersionRequested = MAKEWORD(2,1); 
 	WSAStartup(wVersionRequested, &wsaData);
 	
-	//æœ¬åœ°socketï¼Œåªè´Ÿè´£æ¥æ”¶ 
+	//±¾µØsocket£¬Ö»¸ºÔğ½ÓÊÕ 
     localSocket=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-    //æœåŠ¡å™¨çš„ipå’Œç«¯å£å· 
-    struct sockaddr_in clientAddr,serverAddr;
+    //·şÎñÆ÷µÄipºÍ¶Ë¿ÚºÅ 
     serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(6666);//htonsæŠŠunsigned shortç±»å‹ä»ä¸»æœºåºè½¬æ¢åˆ°ç½‘ç»œåº
+	serverAddr.sin_port = htons(6666);//htons°Ñunsigned shortÀàĞÍ´ÓÖ÷»úĞò×ª»»µ½ÍøÂçĞò
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	
-	//ç»‘å®šæœ¬åœ°socketå’Œç«¯å£å· 
+	//°ó¶¨±¾µØsocketºÍ¶Ë¿ÚºÅ 
 	bind(localSocket,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
-	cout<<"æœ¬åœ°ç«¯å£ï¼š"<<ntohs(serverAddr.sin_port)<<endl;//ntohsæŠŠunsigned shortç±»å‹ä»ç½‘ç»œåºè½¬æ¢åˆ°ä¸»æœºåº
+	cout<<"±¾µØ¶Ë¿Ú£º"<<ntohs(serverAddr.sin_port)<<endl;//ntohs°Ñunsigned shortÀàĞÍ´ÓÍøÂçĞò×ª»»µ½Ö÷»úĞò
 	int recv_status=0;
-	
-//	recv_pic("C:/Users/Mika/Desktop/è®¡ç®—æœºç½‘ç»œ/å¤§ä½œä¸š3/æ¥æ”¶åˆ°çš„æ–‡ä»¶/helloworld.txt");
-//	recv_pic("C:/Users/Mika/Desktop/è®¡ç®—æœºç½‘ç»œ/å¤§ä½œä¸š3/æ¥æ”¶åˆ°çš„æ–‡ä»¶/1.jpg");
-//	recv_pic("C:/Users/Mika/Desktop/è®¡ç®—æœºç½‘ç»œ/å¤§ä½œä¸š3/æ¥æ”¶åˆ°çš„æ–‡ä»¶/2.jpg");
-	recv_pic("C:/Users/Mika/Desktop/è®¡ç®—æœºç½‘ç»œ/å¤§ä½œä¸š3/æ¥æ”¶åˆ°çš„æ–‡ä»¶/3.jpg");
-//	while(1) {
-//		string recvbuf=recv_from();
-//		cout<<recvbuf<<endl;
-//	}
+	while(1) {
+		string recvbuf=recv_from();
+		cout<<recvbuf<<endl;
+	}
 	closesocket(localSocket);
 	WSACleanup();
 }
