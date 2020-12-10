@@ -1,6 +1,7 @@
 #include"tool.h"
 #include<Winsock2.h>
 #include<time.h> 
+#include<vector>
 #pragma comment(lib,"ws2_32")
 using namespace std;
 #define SERVER_PORT 6666
@@ -19,13 +20,13 @@ int seq_num=1;//序号
 clock_t start;
 bool begin_timer=false;
  
-//发送报文 ，包含[序号1位，报文，校验和16位] 
+//发送报文
 void send_to(string sendbuf){
 	udp_message message=udp_message(SERVER_PORT,seq_num,sendbuf.size()*8,0,sendbuf);//打包成udp 
 	string real_message=message.real_message();
 	const char *buffer=real_message.c_str();
 	//发送数据
-	sendto(localSocket,buffer,real_message.size()*8,0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
+	sendto(localSocket,buffer,real_message.size(),0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
 	//开始计时
 	start=clock(); 
 	begin_timer=true;
@@ -41,25 +42,24 @@ string recv_from(){
 	string s=recvbuf;
 	return s;
 }
+vector<string>v;
 //发送文件
 void send_file(string path){
 	FILE *fin=fopen(path.c_str(),"rb");
-	char buffer[bufferSize];//sizeof(buffer)=4096
+	char buffer[bufferSize];
 	
 	while(!feof(fin))
 	{
 		fread(buffer,1,sizeof(buffer),fin);
 		cout<<"start sending..."<<endl;
 		sendto(localSocket,buffer,sizeof(buffer),0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
-// 		string s=buffer;
-// 		v.push_back(s);//先都存进一个数组 
 		memset(buffer,0,sizeof(buffer));
 	}
 	fclose(fin);
 } 
 
 void send_test(){
-    send_file("C:\\Users\\Mika\\Desktop\\计算机网络\\大作业3\\任务1测试文件\\1.jpg");
+   	send_file("C:\\Users\\Mika\\Desktop\\计算机网络\\大作业3\\任务1测试文件\\1.jpg");
 //    send_file("C:\\Users\\Mika\\Desktop\\计算机网络\\大作业3\\任务1测试文件\\2.jpg");
 //    send_file("C:\\Users\\Mika\\Desktop\\计算机网络\\大作业3\\任务1测试文件\\3.jpg");
 //    send_file("C:\\Users\\Mika\\Desktop\\计算机网络\\大作业3\\任务1测试文件\\helloworld.txt");
@@ -88,26 +88,27 @@ int main(){
 	
 	
 	cout<<">>>";
+	cin>>sendbuf;
+	send_test();
 	
-	
-	while(1) {
-		cin>>sendbuf;
-		Sleep(10);//等待waiting更新 
-		//当现在不在停等状态时，允许发送报文 
-		if(waiting==false){
-			seq_num=!seq_num; //新的报文，序号变化 
-			send_to(sendbuf);//发送
-						
-			temp=sendbuf;//缓存，便于重传 
-			waiting=true;
-		}
-		begin_recv=true;//***可以开始接收服务器端消息啦***
-		if(sendbuf=="quit"){
-			begin_recv=false;
-			break;
-		}
-	}
-	CloseHandle(hThread);
+//	while(1) {
+//		cin>>sendbuf;
+//		Sleep(10);//等待waiting更新 
+//		//当现在不在停等状态时，允许发送报文 
+//		if(waiting==false){
+//			seq_num=!seq_num; //新的报文，序号变化 
+//			send_to(sendbuf);//发送
+//						
+//			temp=sendbuf;//缓存，便于重传 
+//			waiting=true;
+//		}
+//		begin_recv=true;//***可以开始接收服务器端消息啦***
+//		if(sendbuf=="quit"){
+//			begin_recv=false;
+//			break;
+//		}
+//	}
+	//CloseHandle(hThread);
 	closesocket(localSocket);
 	WSACleanup();
 }
