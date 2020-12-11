@@ -1,80 +1,110 @@
 #include"tool.h"
 #include<Winsock2.h>
-#include<time.h> 
-#include<vector>
 #pragma comment(lib,"ws2_32")
 using namespace std;
 #define SERVER_PORT 6666
-
+#define CLIENT_PORT 6665
 SOCKET localSocket;
-struct sockaddr_in serverAddr,clientAddr;//æ¥æ”¶ç«¯çš„ipå’Œç«¯å£å·ä¿¡æ¯ 
+struct sockaddr_in serverAddr,clientAddr;//½ÓÊÕ¶ËµÄipºÍ¶Ë¿ÚºÅĞÅÏ¢ 
 DWORD WINAPI handlerRequest(LPVOID lpParam);
-DWORD WINAPI handlerTimer(LPVOID lpParam);
 
-bool begin_recv=false;//å¯ä»¥å¼€å§‹æ¥æ”¶ 
-bool waiting=false; //ç­‰å¾…å‘é€ 
-string sendbuf="";
+bool begin_recv=false;//¿ÉÒÔ¿ªÊ¼½ÓÊÕ 
+bool waiting=false; //µÈ´ı·¢ËÍ 
 string temp;
 
-int seq_num=1;//åºå·
-clock_t start;
-bool begin_timer=false;
- 
-//å‘é€æŠ¥æ–‡
-void send_to(string sendbuf){
-	udp_message message=udp_message(SERVER_PORT,seq_num,sendbuf.size()*8,0,sendbuf);//æ‰“åŒ…æˆudp 
-	string real_message=message.real_message();
-	const char *buffer=real_message.c_str();
-	//å‘é€æ•°æ®
-	sendto(localSocket,buffer,real_message.size(),0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
-	//å¼€å§‹è®¡æ—¶
-	start=clock(); 
-	begin_timer=true;
+int seq_num=1;//ĞòºÅ
+
+
+//·¢ËÍ±¨ÎÄ
+void send_to(char *message){
+	udp_message u=udp_message(SERVER_PORT,seq_num,bufferSize-10,0,message);//´ò°ü³Éudp 
+	//´ò°üºóµÄ±¨ÎÄmsg
+	char msg[bufferSize];
+	u.real_message(msg);
+	//·¢ËÍÊı¾İ
+	sendto(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));//´óĞ¡ºÜÖØÒª
 }
 
 
-//æ¥æ”¶ 
-string recv_from(){
-	char recvbuf[200];
+//½ÓÊÕ 
+void recv_from(char *message){
+	char msg[bufferSize];
 	int size=sizeof(serverAddr);
-	recvfrom(localSocket,recvbuf,200,0,(SOCKADDR*)&serverAddr,&size);
-	//cout<<"æœåŠ¡å™¨ç«¯å£å·ï¼š"<<ntohs(serverAddr.sin_port); 
-	string s=recvbuf;
-	return s;
+	recvfrom(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&serverAddr,&size);
+	analyse(msg,message);
 }
-vector<string>v;
-//å‘é€æ–‡ä»¶
-void send_file(string path){
+
+
+//·¢ËÍÎÄ¼ş
+ void send_file(string path){
+ 	FILE *fin=fopen(path.c_str(),"rb");
+ 	char buffer[4096];
+ 	while(!feof(fin))
+ 	{
+ 		fread(buffer,1,sizeof(buffer),fin);
+ 		cout<<strlen(buffer)<<endl;
+ 		sendto(localSocket,buffer,sizeof(buffer),0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
+ 		memset(buffer,0,sizeof(buffer));
+ 	}
+ 	cout<<"finish"<<endl;
+ 	fclose(fin);
+ } 
+
+
+bool begin_timer=false;
+double dt;
+clock_t start,end;
+double overtime=1000;//³¬Ê±Ê±¼ä 
+//ÏÈ°ÑÎÄ¼ş´ò°ü´æ´¢ÔÚvÖĞ£¬ÏÈÉèÖÃĞ¡Ò»µã
+void send_file_2(string path){
 	FILE *fin=fopen(path.c_str(),"rb");
-	char buffer[bufferSize];
-	
+	char message[4096];
 	while(!feof(fin))
 	{
-		fread(buffer,1,sizeof(buffer),fin);
-		cout<<"start sending..."<<endl;
-		sendto(localSocket,buffer,sizeof(buffer),0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
-		memset(buffer,0,sizeof(buffer));
+		end=clock();
+		dt = (double)(end - start);
+		if(waiting==true&&dt>=overtime){
+			cout<<"timeout="<<dt<<endl; 
+			send_to(message);//³¬Ê±ÖØ´«
+			cout<<seq_num<<' '<<strlen(message)<<endl;
+			start=clock(); 
+			continue;
+		}
+		//µ±ÏÖÔÚ²»ÔÚÍ£µÈ×´Ì¬Ê±£¬ÔÊĞí·¢ËÍ±¨ÎÄ 
+		if(waiting==false)
+		{
+			fread(message,1,sizeof(message)-10,fin);
+			
+			seq_num=1-seq_num; //ĞÂµÄ±¨ÎÄ£¬ĞòºÅ±ä»¯
+			 
+			send_to(message);
+			cout<<seq_num<<' '<<strlen(message)<<endl;
+			start=clock();  
+			waiting=true;
+		}
+		begin_recv=true;//***¿ÉÒÔ¿ªÊ¼½ÓÊÕ·şÎñÆ÷¶ËÏûÏ¢À²***
 	}
+	cout<<"finish"<<endl;
 	fclose(fin);
 } 
-
+double space=1859130;
 void send_test(){
-   	send_file("C:\\Users\\Mika\\Desktop\\è®¡ç®—æœºç½‘ç»œ\\å¤§ä½œä¸š3\\ä»»åŠ¡1æµ‹è¯•æ–‡ä»¶\\1.jpg");
-//    send_file("C:\\Users\\Mika\\Desktop\\è®¡ç®—æœºç½‘ç»œ\\å¤§ä½œä¸š3\\ä»»åŠ¡1æµ‹è¯•æ–‡ä»¶\\2.jpg");
-//    send_file("C:\\Users\\Mika\\Desktop\\è®¡ç®—æœºç½‘ç»œ\\å¤§ä½œä¸š3\\ä»»åŠ¡1æµ‹è¯•æ–‡ä»¶\\3.jpg");
-//    send_file("C:\\Users\\Mika\\Desktop\\è®¡ç®—æœºç½‘ç»œ\\å¤§ä½œä¸š3\\ä»»åŠ¡1æµ‹è¯•æ–‡ä»¶\\helloworld.txt");
+ 	send_file_2("C:\\Users\\Mika\\Desktop\\¼ÆËã»úÍøÂç\\´ó×÷Òµ3\\ÈÎÎñ1²âÊÔÎÄ¼ş\\1.jpg");
+ //   send_file_2("C:\\Users\\Mika\\Desktop\\¼ÆËã»úÍøÂç\\´ó×÷Òµ3\\ÈÎÎñ1²âÊÔÎÄ¼ş\\2.jpg");
+  //  send_file_2("C:\\Users\\Mika\\Desktop\\¼ÆËã»úÍøÂç\\´ó×÷Òµ3\\ÈÎÎñ1²âÊÔÎÄ¼ş\\3.jpg");
+  // send_file_2("C:\\Users\\Mika\\Desktop\\¼ÆËã»úÍøÂç\\´ó×÷Òµ3\\ÈÎÎñ1²âÊÔÎÄ¼ş\\helloworld.txt");
 }
 
 int main(){
-	//åˆå§‹åŒ–
+	//³õÊ¼»¯
     WSADATA wsaData;
 	WORD wVersionRequested = MAKEWORD(2,1); 
 	WSAStartup(wVersionRequested, &wsaData);
 
-	//å»è¿æ¥æœåŠ¡å™¨çš„socket
+	//È¥Á¬½Ó·şÎñÆ÷µÄsocket
     localSocket=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
     
-    //æœåŠ¡å™¨çš„ipå’Œç«¯å£å· 
+    //·şÎñÆ÷µÄipºÍ¶Ë¿ÚºÅ 
     serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(6666);
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
@@ -84,81 +114,44 @@ int main(){
     clientAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	
 	HANDLE hThread=CreateThread(NULL, 0, handlerRequest,LPVOID(), 0,NULL);
-	HANDLE hThread2=CreateThread(NULL, 0, handlerTimer,LPVOID(), 0,NULL);
-	
-	
+
 	cout<<">>>";
-	cin>>sendbuf;
-	send_test();
+	string sendbuf;
+	cin>>sendbuf;	
 	
-//	while(1) {
-//		cin>>sendbuf;
-//		Sleep(10);//ç­‰å¾…waitingæ›´æ–° 
-//		//å½“ç°åœ¨ä¸åœ¨åœç­‰çŠ¶æ€æ—¶ï¼Œå…è®¸å‘é€æŠ¥æ–‡ 
-//		if(waiting==false){
-//			seq_num=!seq_num; //æ–°çš„æŠ¥æ–‡ï¼Œåºå·å˜åŒ– 
-//			send_to(sendbuf);//å‘é€
-//						
-//			temp=sendbuf;//ç¼“å­˜ï¼Œä¾¿äºé‡ä¼  
-//			waiting=true;
-//		}
-//		begin_recv=true;//***å¯ä»¥å¼€å§‹æ¥æ”¶æœåŠ¡å™¨ç«¯æ¶ˆæ¯å•¦***
-//		if(sendbuf=="quit"){
-//			begin_recv=false;
-//			break;
-//		}
-//	}
+	clock_t all_start=clock();
+	send_test();
+	clock_t all_end=clock();
+	double all_pass=(double)(all_end - all_start);
+	cout<<"´«ÊäÊ±¼ä£º"<<all_pass<<"ms"<<endl; 
+	cout<<"ÍÌÍÂÂÊ£º"<<space/all_pass<<"KB/s"<<endl;
+	Sleep(10000);//½ÓÊÕ×îºóµÄACK 
 	//CloseHandle(hThread);
 	closesocket(localSocket);
 	WSACleanup();
 }
 
-//è´Ÿè´£æ¥æ”¶çš„çº¿ç¨‹ 
+//¸ºÔğ½ÓÊÕµÄÏß³Ì 
 DWORD WINAPI handlerRequest(LPVOID lpParam){
 	while(1){
-		Sleep(10);//æ”¹å˜begin_recvåï¼Œéœ€è¦ç­‰ä¸€ä¸‹å†æ¥æ”¶ï¼Œä¸ç„¶ä¼šä¸¢æ‰ç¬¬ä¸€ä¸ªACK 
-		string s=recv_from();
-		if(begin_recv==false)continue;//è¿˜ä¸èƒ½æ¥æ”¶ 
-		
-		begin_timer=false;//æ”¶åˆ°ackï¼Œåœæ­¢è®¡æ—¶ 
-		
-		int server_port=bin2dec(s.substr(0,16));
-		int seq_num_2=bin2dec(s.substr(16,16));
-		int length=bin2dec(s.substr(32,16));
-		int check_sum=bin2dec(s.substr(48,16));
-		string message_asc=s.substr(64,length);
-		string message="";
-		for(int i=0;i<length;i+=8){
-			message+=bin2dec(message_asc.substr(i,8));
+		Sleep(10);//¸Ä±äbegin_recvºó£¬ĞèÒªµÈÒ»ÏÂÔÙ½ÓÊÕ£¬²»È»»á¶ªµôµÚÒ»¸öACK 
+		char msg[bufferSize],message[bufferSize];
+		int size=sizeof(serverAddr);
+		if(begin_recv==false){
+			continue;
 		}
-		udp_message m=udp_message(server_port,seq_num_2,length,check_sum,message);
-		m.print();
-
-		int sum=0;
-		for(int i=0;i<s.size();i+=16){
-			sum+=bin2dec(s.substr(i,16));
-			sum=(sum>>16)+(sum&0xffff);
-		}
-		if(sum==0xffff&&seq_num_2==seq_num){//æ ¡éªŒå’Œæ­£ç¡®ã€åºå·æ­£ç¡®ï¼Œå¯ä»¥å‘é€ä¸‹ä¸€æ¡
+		recvfrom(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&serverAddr,&size);
+		
+//		udp_message m=udp_message(server_port,seq_num_2,length,check_sum,message);
+//		m.print();
+		if(GET_WHOLE(msg[2],msg[3])==seq_num){//Ğ£ÑéºÍÕıÈ·¡¢ĞòºÅÕıÈ·£¬¿ÉÒÔ·¢ËÍÏÂÒ»Ìõ
 			waiting=false;
 			cout<<">>>";
 		}
-		else{//ç»§ç»­ç­‰å¾…æ­£ç¡®ACKï¼Œè‹¥è¶…æ—¶é‡ä¼ 
+		else{//¼ÌĞøµÈ´ıÕıÈ·ACK£¬Èô³¬Ê±ÖØ´«
 			waiting=true; 
 		}
 	} 
 }
-DWORD WINAPI handlerTimer(LPVOID lpParam){
-	double dt;
-    clock_t end;
-    while(1){
-    	end = clock();
-    	dt = (double)(end - start);
-    	if(begin_timer==true && dt==300 ){
-		//å¦‚æœè¶…è¿‡300æ¯«ç§’ï¼Œè¿™é‡Œå¿…é¡»æ˜¯==ï¼Œå¦åˆ™ä¼šå‡ºç°dt>1000çš„å¼‚å¸¸æƒ…å†µ 
-			cout<<"timeout="<<dt<<",resend"<<endl; 
-			begin_timer=false;
-			send_to(temp);//è¶…æ—¶é‡ä¼ 
-		}
-	}
-}
+
+

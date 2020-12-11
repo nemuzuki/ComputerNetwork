@@ -5,60 +5,29 @@ using namespace std;
 #define SERVER_PORT 6666
 #define CLIENT_PORT 6665
 SOCKET localSocket; 
-//å‘é€çš„ipå’Œç«¯å£å·ä¿¡æ¯ 
+//·¢ËÍµÄipºÍ¶Ë¿ÚºÅĞÅÏ¢ 
 struct sockaddr_in clientAddr,serverAddr;
 
-
-int send_to(string s){
-	const char *c=s.c_str();
-	//å‘é€æ•°æ®åˆ°åœ°å€serverAddr
-	return sendto(localSocket,c,200,0,(SOCKADDR*)&clientAddr,sizeof(SOCKADDR));
-}
-//è§£æudpæŠ¥æ–‡ï¼Œè¿”å›æŠ¥æ–‡æ®µ
-string analyse(string s){
-	int server_port=bin2dec(s.substr(0,16));
-	int seq_num=bin2dec(s.substr(16,16));
-	int length=bin2dec(s.substr(32,16));
-	int check_sum=bin2dec(s.substr(48,16));
-	string message_asc=s.substr(64,length);
-	string message="";
-	for(int i=0;i<length;i+=8){
-		message+=bin2dec(message_asc.substr(i,8));
-	}
-	udp_message m=udp_message(server_port,seq_num,length,check_sum,message);
-	m.print();
-
-	int sum=0;
-	for(int i=0;i<s.size();i+=16){
-		sum+=bin2dec(s.substr(i,16));
-		sum=(sum>>16)+(sum&0xffff);
-	}
-	//Sleep(1000);
-	if(sum==0xffff){//æ ¡éªŒå’Œæ­£ç¡®ï¼Œå›å¤ACK
-		cout<<"æ ¡éªŒå’Œæ­£ç¡®"<<endl;
-		udp_message m=udp_message(CLIENT_PORT,seq_num,24,0,"ACK");
-		string message=m.real_message();
-		send_to(message);
-	}
-	else{
-		cout<<"æ ¡éªŒå’Œé”™è¯¯"<<sum<<endl;
-		udp_message m=udp_message(CLIENT_PORT,1-seq_num,24,0,"ACK");
-		string message=m.real_message();
-		send_to(message);
-	}
-	return message;
+//·¢ËÍ±¨ÎÄ
+void send_to(char *message,int seq_num){
+	udp_message u=udp_message(SERVER_PORT,seq_num,strlen(message),0,message);//´ò°ü³Éudp 
+	//´ò°üºóµÄ±¨ÎÄmsg
+	char msg[bufferSize];
+	u.real_message(msg);
+	sendto(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&clientAddr,sizeof(SOCKADDR));
 }
 
-string recv_from(){
-	char recvbuf[200];
+
+bool recv_from(){
+	char msg[bufferSize],message[bufferSize];
 	int size=sizeof(clientAddr);
-	recvfrom(localSocket,recvbuf,200,0,(SOCKADDR*)&clientAddr,&size);
-	string s=recvbuf;
-	return analyse(s);
+	recvfrom(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&clientAddr,&size);
+	return analyse(msg,message);
 }
 
 void recv_file(string path){
 	char buffer[bufferSize]; 
+	
 	FILE *fout=fopen(path.c_str(),"wb");
 	while(1)
 	{
@@ -66,15 +35,42 @@ void recv_file(string path){
 		recvfrom(localSocket,buffer,sizeof(buffer),0,(SOCKADDR*)&clientAddr,&size);
 		fwrite(buffer,1,sizeof(buffer),fout);
 		memset(buffer,0,sizeof(buffer));
+	} 	
+	cout<<"transport picture finish!"<<endl;
+	fclose(fout);
+}
+
+void recv_file_2(string path){
+	char msg[bufferSize],message[bufferSize];
+	FILE *fout=fopen(path.c_str(),"wb");
+	while(1)
+	{
+		int size=sizeof(clientAddr);
+		recvfrom(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&clientAddr,&size);
+		bool error_msg=random_loss();
+		if(error_msg==false)msg[1]/=2; 
+		
+		bool check=analyse(msg,message);
+		
+		
+		if(check==true)
+		{
+			//Ò»¶¨¸ÅÂÊ¶ªµôACK°ü 
+			bool lost_ack=random_loss();
+			if(lost_ack==false)continue; 
+			send_to("ACK",GET_WHOLE(msg[2],msg[3]));
+			fwrite(message,1,GET_WHOLE(msg[4],msg[5]),fout);
+		}
+		memset(message,0,sizeof(message));
 	}
 	fclose(fout);
 }
 
 void recv_test(){
-	recv_file("C:\\Users\\Mika\\Desktop\\è®¡ç®—æœºç½‘ç»œ\\å¤§ä½œä¸š3\\æ¥æ”¶åˆ°çš„æ–‡ä»¶\\1.jpg");
-//    recv_file("C:\\Users\\Mika\\Desktop\\è®¡ç®—æœºç½‘ç»œ\\å¤§ä½œä¸š3\\æ¥æ”¶åˆ°çš„æ–‡ä»¶\\2.jpg");
-//    recv_file("C:\\Users\\Mika\\Desktop\\è®¡ç®—æœºç½‘ç»œ\\å¤§ä½œä¸š3\\æ¥æ”¶åˆ°çš„æ–‡ä»¶\\3.jpg");
-//    recv_file("C:\\Users\\Mika\\Desktop\\è®¡ç®—æœºç½‘ç»œ\\å¤§ä½œä¸š3\\æ¥æ”¶åˆ°çš„æ–‡ä»¶\\helloworld.txt");
+	recv_file_2("C:\\Users\\Mika\\Desktop\\¼ÆËã»úÍøÂç\\´ó×÷Òµ3\\½ÓÊÕµ½µÄÎÄ¼ş\\1.jpg");
+//    recv_file_2("C:\\Users\\Mika\\Desktop\\¼ÆËã»úÍøÂç\\´ó×÷Òµ3\\½ÓÊÕµ½µÄÎÄ¼ş\\2.jpg");
+ //   recv_file_2("C:\\Users\\Mika\\Desktop\\¼ÆËã»úÍøÂç\\´ó×÷Òµ3\\½ÓÊÕµ½µÄÎÄ¼ş\\3.jpg");
+  //  recv_file_2("C:\\Users\\Mika\\Desktop\\¼ÆËã»úÍøÂç\\´ó×÷Òµ3\\½ÓÊÕµ½µÄÎÄ¼ş\\helloworld.txt");
 }
 
 int main(){
@@ -82,16 +78,16 @@ int main(){
 	WORD wVersionRequested = MAKEWORD(2,1); 
 	WSAStartup(wVersionRequested, &wsaData);
 	
-	//æœ¬åœ°socketï¼Œåªè´Ÿè´£æ¥æ”¶ 
+	//±¾µØsocket£¬Ö»¸ºÔğ½ÓÊÕ 
     localSocket=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-    //æœåŠ¡å™¨çš„ipå’Œç«¯å£å· 
+    //·şÎñÆ÷µÄipºÍ¶Ë¿ÚºÅ 
     serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(6666);//htonsæŠŠunsigned shortç±»å‹ä»ä¸»æœºåºè½¬æ¢åˆ°ç½‘ç»œåº
+	serverAddr.sin_port = htons(6666);//htons°Ñunsigned shortÀàĞÍ´ÓÖ÷»úĞò×ª»»µ½ÍøÂçĞò
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	
-	//ç»‘å®šæœ¬åœ°socketå’Œç«¯å£å· 
+	//°ó¶¨±¾µØsocketºÍ¶Ë¿ÚºÅ 
 	bind(localSocket,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
-	cout<<"æœ¬åœ°ç«¯å£ï¼š"<<ntohs(serverAddr.sin_port)<<endl;//ntohsæŠŠunsigned shortç±»å‹ä»ç½‘ç»œåºè½¬æ¢åˆ°ä¸»æœºåº
+	cout<<"±¾µØ¶Ë¿Ú£º"<<ntohs(serverAddr.sin_port)<<endl;//ntohs°Ñunsigned shortÀàĞÍ´ÓÍøÂçĞò×ª»»µ½Ö÷»úĞò
 	
 //	while(1) {
 //		string recvbuf=recv_from();
@@ -101,3 +97,4 @@ int main(){
 	closesocket(localSocket);
 	WSACleanup();
 }
+
