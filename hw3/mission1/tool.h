@@ -78,20 +78,10 @@ bool analyse(char *msg,char *message){
 		sum=(sum>>16)+(sum&0xffff);
 	}
 	if(sum==0xffff){//校验和正确，回复ACK
-		cout<<"yes"<<endl;
 		return true;
 	}
 	else{
-		cout<<"no"<<endl;
 		return false;
 	}
 }
 
-bool random_loss(){
-	srand((int)time(0));
-	int r=rand()%100;
-	if(r==99){
-		return false;
-	}
-	return true;
-}

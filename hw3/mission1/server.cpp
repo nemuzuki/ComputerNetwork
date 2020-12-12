@@ -8,6 +8,15 @@ SOCKET localSocket;
 //发送的ip和端口号信息 
 struct sockaddr_in clientAddr,serverAddr;
 
+//%1的概率比特错误或者丢包 
+bool random_loss(){
+	int r=rand()%100;
+	cout<<r<<endl;
+	if(r>98){
+		return false;
+	}
+	return true;
+}
 //发送报文
 void send_to(char *message,int seq_num){
 	udp_message u=udp_message(SERVER_PORT,seq_num,strlen(message),0,message);//打包成udp 
@@ -55,11 +64,17 @@ void recv_file_2(string path){
 		
 		if(check==true)
 		{
+			cout<<"yes"<<endl;
+			
 			//一定概率丢掉ACK包 
 			bool lost_ack=random_loss();
 			if(lost_ack==false)continue; 
+			
 			send_to("ACK",GET_WHOLE(msg[2],msg[3]));
 			fwrite(message,1,GET_WHOLE(msg[4],msg[5]),fout);
+		}
+		else{
+			cout<<"no"<<endl;
 		}
 		memset(message,0,sizeof(message));
 	}
@@ -89,12 +104,20 @@ int main(){
 	bind(localSocket,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
 	cout<<"本地端口："<<ntohs(serverAddr.sin_port)<<endl;//ntohs把unsigned short类型从网络序转换到主机序
 	
-//	while(1) {
-//		string recvbuf=recv_from();
-//		cout<<recvbuf<<endl;
-//	}
+	char buffer[200],msg[200];
+	while(1){
+		int size=sizeof(clientAddr);
+		recvfrom(localSocket,buffer,sizeof(buffer),0,(SOCKADDR*)&clientAddr,&size);
+		cout<<buffer<<endl;
+		strcpy(msg,"ack");
+		sendto(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&clientAddr,sizeof(SOCKADDR));
+		if(strcpy(buffer,"ack")){
+			break;
+		}
+	}
+	
+	srand(time(0));//srand必须写在main里面 
 	recv_test();
 	closesocket(localSocket);
 	WSACleanup();
 }
-

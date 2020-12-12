@@ -35,7 +35,7 @@ void recv_from(char *message){
 }
 
 
-//发送文件
+//发送文件，无校验和 
  void send_file(string path){
  	FILE *fin=fopen(path.c_str(),"rb");
  	char buffer[4096];
@@ -51,11 +51,10 @@ void recv_from(char *message){
  } 
 
 
-bool begin_timer=false;
 double dt;
 clock_t start,end;
 double overtime=1000;//超时时间 
-//先把文件打包存储在v中，先设置小一点
+//停等协议发送文件 
 void send_file_2(string path){
 	FILE *fin=fopen(path.c_str(),"rb");
 	char message[4096];
@@ -113,12 +112,29 @@ int main(){
 	clientAddr.sin_port = htons(6665);
     clientAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	
-	HANDLE hThread=CreateThread(NULL, 0, handlerRequest,LPVOID(), 0,NULL);
 
 	cout<<">>>";
-	string sendbuf;
-	cin>>sendbuf;	
+	char sendbuf[200],msg[200];
+	cin>>sendbuf;
 	
+	//三次握手 
+	while(1){	
+		strcpy(sendbuf,"syn");
+		sendto(localSocket,sendbuf,sizeof(sendbuf),0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
+		int size=sizeof(clientAddr);
+		recvfrom(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&serverAddr,&size);
+		cout<<msg<<endl;
+		if(strcmp(msg,"ack")==0){
+			strcpy(sendbuf,"ack");
+			sendto(localSocket,sendbuf,sizeof(sendbuf),0,(SOCKADDR*)&serverAddr,sizeof(SOCKADDR));
+			Sleep(100);
+			break;
+		}
+	}
+
+		
+	
+	HANDLE hThread=CreateThread(NULL, 0, handlerRequest,LPVOID(), 0,NULL);
 	clock_t all_start=clock();
 	send_test();
 	clock_t all_end=clock();
@@ -141,17 +157,12 @@ DWORD WINAPI handlerRequest(LPVOID lpParam){
 			continue;
 		}
 		recvfrom(localSocket,msg,sizeof(msg),0,(SOCKADDR*)&serverAddr,&size);
+		waiting=true; 
 		
-//		udp_message m=udp_message(server_port,seq_num_2,length,check_sum,message);
-//		m.print();
 		if(GET_WHOLE(msg[2],msg[3])==seq_num){//校验和正确、序号正确，可以发送下一条
 			waiting=false;
 			cout<<">>>";
 		}
-		else{//继续等待正确ACK，若超时重传
-			waiting=true; 
-		}
 	} 
 }
-
 
