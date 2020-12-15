@@ -5,7 +5,7 @@
 using namespace std;
 #define SERVER_PORT 6666
 #define CLIENT_PORT 6665
-int WINDOW_SIZE=1;	//窗口大小
+int WINDOW_SIZE=1;	//窗口大小cwnd
 int ssthresh=8;	//阈值，一旦达到阈值，则指数->线性
 int dup_ack_cnt=0;//冗余ack计数器
 int last_ack_seq=0;//上一次的ack序号，用于更新ack_cnt
@@ -183,8 +183,8 @@ DWORD WINAPI handlerRequest(LPVOID lpParam){
 
 			else{//冗余
 				dup_ack_cnt++;
-				if(dup_ack_cnt==3){//3个冗余ack，则阈值/=2,cwnd=阈值+3
-					ssthresh/=2;
+				if(dup_ack_cnt==3){//3个冗余ack，则阈值=cwnd/2,cwnd=阈值+3
+					ssthresh=WINDOW_SIZE/2;
 					WINDOW_SIZE=ssthresh+3;
 					seq_num=base;
 				}
