@@ -5,7 +5,7 @@
 using namespace std;
 #define SERVER_PORT 6666
 #define CLIENT_PORT 6665
-int WINDOW_SIZE=1;	//窗口大小cwnd
+int WINDOW_SIZE=1;	//窗口大小
 int ssthresh=8;	//阈值，一旦达到阈值，则指数->线性
 int dup_ack_cnt=0;//冗余ack计数器
 int last_ack_seq=0;//上一次的ack序号，用于更新ack_cnt
@@ -171,13 +171,13 @@ DWORD WINAPI handlerRequest(LPVOID lpParam){
 			if(new_ack_seq!=last_ack_seq){//ack序号不冗余
 				last_ack_seq=new_ack_seq;
 				dup_ack_cnt=0;
-				//拥塞避免状态
+				//拥塞避免状态，其实按照书上不是标准线性？因为cwnd每次变化
 				if(WINDOW_SIZE>=ssthresh){
-					WINDOW_SIZE++;
+					WINDOW_SIZE+=1/WINDOW_SIZE;
 				}
-				//慢启动状态
+				//慢启动状态，每收到一个ack，窗口+1，一轮过后就是*2
 				else{
-					WINDOW_SIZE*=2;
+					WINDOW_SIZE++;
 				}
 			}
 
