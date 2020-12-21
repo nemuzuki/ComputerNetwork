@@ -5,7 +5,7 @@
 using namespace std;
 #define SERVER_PORT 6666
 #define CLIENT_PORT 6665
-#define WINDOW_SIZE 4	//窗口大小
+#define WINDOW_SIZE 8	//窗口大小
 
 SOCKET localSocket;
 struct sockaddr_in serverAddr,clientAddr;//接收端的ip和端口号信息 
@@ -56,7 +56,7 @@ void recv_from(char *message){
 
 double dt;
 clock_t start,end;
-double overtime=1000;//超时时间 
+double overtime=100;//超时时间 
 //把文件分块存储在v中
 vector<char*>v;
 char block[2048][1024];
@@ -120,19 +120,26 @@ int main(){
     
     //服务器的ip和端口号 
     serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(6666);
+	serverAddr.sin_port = htons(SERVER_PORT);
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
 	clientAddr.sin_family = AF_INET;
-	clientAddr.sin_port = htons(6665);
+	clientAddr.sin_port = htons(CLIENT_PORT);
     clientAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	
+	bind(localSocket,(SOCKADDR*)&clientAddr,sizeof(SOCKADDR));
+	cout<<"本地端口："<<ntohs(clientAddr.sin_port)<<endl;//ntohs把unsigned short类型从网络序转换到主机序
 	HANDLE hThread=CreateThread(NULL, 0, handlerRequest,LPVOID(), 0,NULL);
 
 	cout<<">>>";
 	string sendbuf;
 	cin>>sendbuf;
+	
+	clock_t all_start=clock();
 	send_test();
+	clock_t all_end=clock();
+	double all_pass=(double)(all_end - all_start);
+	cout<<"传输时间："<<all_pass<<"ms"<<endl; 
+	cout<<"吞吐率："<<space/all_pass<<"KB/s"<<endl;
 
 	
 	Sleep(10000);//一定要等一会，否则线程立即关掉，没法打印结果 
