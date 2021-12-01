@@ -6,31 +6,31 @@
 
 int main(){
     WSADATA wsaData;
-	WORD wVersionRequested = MAKEWORD(2,1); 
-	WSAStartup(wVersionRequested, &wsaData);
+    WORD wVersionRequested = MAKEWORD(2,1); 
+    WSAStartup(wVersionRequested, &wsaData);
 
     char sendbuf[200],recvbuf[200];
     int serverSocket=socket(AF_INET,SOCK_STREAM,0);
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(SERVER_PORT);
+    serverAddr.sin_port = htons(SERVER_PORT);
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	//È¥ºÍ6666¶Ë¿Ú·şÎñÆ÷Á¬½Ó
+    //å»å’Œ6666ç«¯å£æœåŠ¡å™¨è¿æ¥
     connect(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
     while(1)
-	{
-		printf("·¢ËÍÏûÏ¢£º");
-		scanf("%s", sendbuf);
-		send(serverSocket, sendbuf, strlen(sendbuf), 0); //Ïò·şÎñ¶Ë·¢ËÍÏûÏ¢
-		if(strcmp(sendbuf, "quit") == 0) break;
+    {
+        printf("å‘é€æ¶ˆæ¯ï¼š");
+        scanf("%s", sendbuf);
+        send(serverSocket, sendbuf, strlen(sendbuf), 0); //å‘æœåŠ¡ç«¯å‘é€æ¶ˆæ¯
+        if(strcmp(sendbuf, "quit") == 0) break;
 
 
-		printf("½ÓÊÜµ½ÏûÏ¢£º");
-		recvbuf[0]='\0';
-		int len=recv(serverSocket, recvbuf, 200, 0); //½ÓÊÕ·şÎñ¶Ë·¢À´µÄÏûÏ¢
-		recvbuf[len]='\0';//ºóÃæµÄ²»ÒªÁË
-		printf("%s\n", recvbuf);
-	}
+        printf("æ¥å—åˆ°æ¶ˆæ¯ï¼š");
+        recvbuf[0]='\0';
+        int len=recv(serverSocket, recvbuf, 200, 0); //æ¥æ”¶æœåŠ¡ç«¯å‘æ¥çš„æ¶ˆæ¯
+        recvbuf[len]='\0';//åé¢çš„ä¸è¦äº†
+        printf("%s\n", recvbuf);
+    }
     closesocket(serverSocket);
-	WSACleanup();
+    WSACleanup();
 }
