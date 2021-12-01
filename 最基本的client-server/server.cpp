@@ -6,42 +6,42 @@
 #define SERVER_PORT 6666
 using namespace std;
 int main(){
-	WSADATA wsaData;
-	WORD wVersionRequested = MAKEWORD(2,1); 
-	WSAStartup(wVersionRequested, &wsaData);
-	
-	SOCKET sockSrv=socket(AF_INET,SOCK_STREAM,0);//´´½¨·þÎñÆ÷¶Ësocket
-	struct sockaddr_in server_addr;//·þÎñÆ÷¶ËµØÖ·
-	
-	char buffer[200];
-	int addrlen=sizeof(server_addr);
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(SERVER_PORT);//·þÎñÆ÷¶Ë¿ÚºÅ¶¨Îª6666
-	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	bind(sockSrv,(SOCKADDR*)&server_addr,sizeof(SOCKADDR));//Ì×½Ó×Ö°ó¶¨·þÎñÆ÷¶ËµØÖ·
-	listen(sockSrv,5);//¶ÓÁÐµÄ×î´ó³¤¶ÈÎª5
-	
-	while(1){
-		printf("¼àÌý¶Ë¿Ú£º%d\n",SERVER_PORT);
-		struct sockaddr_in addrClient;//¿Í»§¶ËµØÖ·
-		SOCKET client = accept(sockSrv, (SOCKADDR*)&addrClient, &addrlen);//´´½¨ÐÂÌ×½Ó×ÖÁ¬½Ó¿Í»§
-		cout<<"µ±Ç°¿Í»§µÄ¶Ë¿ÚºÅ£º"<<addrClient.sin_port<<endl;//Êä³öµ±Ç°¿Í»§µÄ¶Ë¿ÚºÅ
-		while(1){
-			//buffer[0]='\0';//Ã¿´Î¶¼Òª³õÊ¼»¯
-			int len=recv(client, buffer, 50, 0);
-			buffer[len]='\0';//ºóÃæµÄ²»ÒªÁË
-			if(strcmp(buffer,"quit")==0)break;
-			printf("½ÓÊÕµ½ÏûÏ¢£º%s",buffer);
-			printf("\n");	
+    WSADATA wsaData;
+    WORD wVersionRequested = MAKEWORD(2,1); 
+    WSAStartup(wVersionRequested, &wsaData);
+    
+    SOCKET sockSrv=socket(AF_INET,SOCK_STREAM,0);//åˆ›å»ºæœåŠ¡å™¨ç«¯socket
+    struct sockaddr_in server_addr;//æœåŠ¡å™¨ç«¯åœ°å€
+    
+    char buffer[200];
+    int addrlen=sizeof(server_addr);
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);//æœåŠ¡å™¨ç«¯å£å·å®šä¸º6666
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    bind(sockSrv,(SOCKADDR*)&server_addr,sizeof(SOCKADDR));//å¥—æŽ¥å­—ç»‘å®šæœåŠ¡å™¨ç«¯åœ°å€
+    listen(sockSrv,5);//é˜Ÿåˆ—çš„æœ€å¤§é•¿åº¦ä¸º5
+    
+    while(1){
+        printf("ç›‘å¬ç«¯å£ï¼š%d\n",SERVER_PORT);
+        struct sockaddr_in addrClient;//å®¢æˆ·ç«¯åœ°å€
+        SOCKET client = accept(sockSrv, (SOCKADDR*)&addrClient, &addrlen);//åˆ›å»ºæ–°å¥—æŽ¥å­—è¿žæŽ¥å®¢æˆ·
+        cout<<"å½“å‰å®¢æˆ·çš„ç«¯å£å·ï¼š"<<addrClient.sin_port<<endl;//è¾“å‡ºå½“å‰å®¢æˆ·çš„ç«¯å£å·
+        while(1){
+            //buffer[0]='\0';//æ¯æ¬¡éƒ½è¦åˆå§‹åŒ–
+            int len=recv(client, buffer, 50, 0);
+            buffer[len]='\0';//åŽé¢çš„ä¸è¦äº†
+            if(strcmp(buffer,"quit")==0)break;
+            printf("æŽ¥æ”¶åˆ°æ¶ˆæ¯ï¼š%s",buffer);
+            printf("\n");    
 
-			printf("·¢ËÍÏûÏ¢£º");
-			scanf("%s",buffer);
-			send(client, buffer, strlen(buffer), 0);
-			if(strcmp(buffer,"quit")==0)break;
-		}
-	}
-	closesocket(sockSrv);
-	WSACleanup();
+            printf("å‘é€æ¶ˆæ¯ï¼š");
+            scanf("%s",buffer);
+            send(client, buffer, strlen(buffer), 0);
+            if(strcmp(buffer,"quit")==0)break;
+        }
+    }
+    closesocket(sockSrv);
+    WSACleanup();
 
 }
 //g++ server.cpp -o server.exe -lwsock32
